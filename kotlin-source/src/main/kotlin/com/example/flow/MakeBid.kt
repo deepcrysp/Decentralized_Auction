@@ -84,27 +84,28 @@ object MakeBid {
             // Assemble the other transaction components.
             // Commands:
             val acceptAuctionCommand = Command(AuctionContract.AcceptBid(), auctionState.itemOwner.owningKey)
-            val createAuctionCommand = Command(BidContract.Create(), listOf(ourIdentity.owningKey, auctionState.itemOwner.owningKey))
+            val createBidCommand = Command(BidContract.Create(), listOf(ourIdentity.owningKey, auctionState.itemOwner.owningKey))
 
             // Output states:
             val bidOutputState = Bid(amount, serviceHub.myInfo.legalIdentities.first(), auctionState.itemOwner, UniqueIdentifier.fromString(AuctionReference))
-            val bitOutputStateAndContract = StateAndContract(bidOutputState, BidContract.CONTRACT_REF)
+            val bidOutputStateAndContract = StateAndContract(bidOutputState, BidContract.CONTRACT_REF)
             val auctionOutputState = auctionState.copy(highestBid=amount,auctionWinner=serviceHub.myInfo.legalIdentities.first())
             val auctionOutputStateAndContract = StateAndContract(auctionOutputState, AuctionContract.CONTRACT_REF)
 
             // Build the transaction.
             val utx = TransactionBuilder(notary = notary).withItems(
-                    bitOutputStateAndContract, // Output
+                    bidOutputStateAndContract, // Output
                     auctionOutputStateAndContract, // Output
                     auctionInputStateAndRef, // Input
                     acceptAuctionCommand, // Command
-                    createAuctionCommand  // Command
+                    createBidCommand  // Command
             )
 
             // Set the time for when this transaction happened.
             utx.setTimeWindow(Instant.now(), 30.seconds)
 
             // Sign, sync identiStartties, finalise and record the transaction.
+            progressTracker.currentStep = SIGNING_TRANSACTION
             val ptx = serviceHub.signInitialTransaction(builder = utx, signingPubKeys = listOf(ourIdentity.owningKey))
             val session = initiateFlow(auctionState.itemOwner)
             subFlow(IdentitySyncFlow.Send(otherSide = session, tx = ptx.tx))
@@ -112,6 +113,7 @@ object MakeBid {
             val ftx = subFlow(FinalityFlow(stx))
 
             // Send list of auction paricipants to broadcast transaction
+            progressTracker.currentStep = FINALISING_TRANSACTION
             session.sendAndReceive<Unit>(auctionState.AuctionParticipants)
 
             return ftx
@@ -142,7 +144,7 @@ object MakeBid {
             val ftx = waitForLedgerCommit(stx.id)
             subFlow(BroadcastTransaction(ftx, AuctionParticipants))
 
-            // We want the other side to block or at least wait a while for the transaction to be broadcast.
+            // We want the other side to block or at least wait a while for the transaction to be broadcasted.
             otherSession.send(Unit)
         }
 

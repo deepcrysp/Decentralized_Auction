@@ -29,7 +29,7 @@ class BidContract : Contract {
 
     private fun verifyCreate(tx: LedgerTransaction, signers: Set<PublicKey>) = requireThat {
         // Assert we have the right amount and type of states.
-        "The can only one input state in an create bid transaction." using (tx.inputStates.size == 1)
+        "There can only be one input state in an create bid transaction." using (tx.inputStates.size == 1)
         "There must be two output states in an create bid transaction." using (tx.outputStates.size == 2)
 
         val auctionInput = tx.inputsOfType<Auction>().single()

@@ -73,10 +73,13 @@ class EndAuction(val AuctionReference: String) : FlowLogic<SignedTransaction>() 
                 auctionInputStateAndRef, // Input
                 endAuctionCommand  // Command
         )
+
+        progressTracker.currentStep = SIGNING_TRANSACTION
         val stx = serviceHub.signInitialTransaction(utx)
         val ftx = subFlow(FinalityFlow(stx))
 
         // Broadcast this transaction to all parties on this business network.
+        progressTracker.currentStep = FINALISING_TRANSACTION
         subFlow(BroadcastTransaction(ftx, auctionState.AuctionParticipants))
 
         return ftx
